@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>器材借出申請</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 1rem; }
+    .overflow-y-auto::-webkit-scrollbar { width: 8px; }
+    .overflow-y-auto::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .overflow-y-auto::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+    .clickable-item { cursor: pointer; transition: background-color 0.15s ease-in-out; }
+    .clickable-item.selected { background-color: #bfdbfe; border-color: #60a5fa; }
+    .clickable-item:hover { background-color: #e0e7ff; }
+    .message-success { background-color: #d1fae5; color: #065f46; }
+    .message-error { background-color: #fee2e2; color: #991b1b; }
+    .message-info { background-color: #e0e7ff; color: #3730a3; }
+</style>
+</head>
+<body>
+<div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md md:max-w-xl lg:max-w-2xl xl:max-w-3xl my-4">
+    <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">器材借出申請</h1>
+
+    <form id="borrowForm" class="space-y-6">
+        <div>
+            <label for="borrowerName" class="block text-sm font-medium text-gray-700 mb-1">借出人姓名</label>
+            <input type="text" id="borrowerName" placeholder="請輸入您的姓名" required
+                   class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        </div>
+        <div>
+            <label for="borrowingUnit" class="block text-sm font-medium text-gray-700 mb-1">借用單位</label>
+            <input type="text" id="borrowingUnit" placeholder="請輸入借用單位或部門" required
+                   class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        </div>
+        <div>
+            <label for="contactInfo" class="block text-sm font-medium text-gray-700 mb-1">聯絡方式</label>
+            <input type="text" id="contactInfo" placeholder="請輸入電話或電子郵件" required
+                   class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">選擇器材 (點擊項目選取)</label>
+            <div class="flex flex-col md:flex-row gap-6">
+                <div class="flex-1 bg-gray-50 p-4 rounded-md border border-gray-200 shadow-sm">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-4">可用器材</h2>
+                    <div id="availableEquipmentList" class="space-y-2 max-h-60 overflow-y-auto border border-gray-300 rounded-md p-2">
+                        <p class="text-gray-500 text-center py-4">載入中...</p>
+                    </div>
+                </div>
+                <div class="flex flex-col justify-center items-center gap-4 py-4 md:py-0">
+                    <button type="button" id="addSelectedBtn" class="px-2 py-1 text-xs bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700">加入 &gt;&gt;</button>
+                    <button type="button" id="removeSelectedBtn" class="px-2 py-1 text-xs bg-red-600 text-white font-medium rounded-md hover:bg-red-700">&lt;&lt; 移除</button>
+                </div>
+                <div class="flex-1 bg-gray-50 p-4 rounded-md border border-gray-200 shadow-sm">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-4">已選器材</h2>
+                    <div id="selectedEquipmentList" class="space-y-2 max-h-60 overflow-y-auto border border-gray-300 rounded-md p-2">
+                        <p class="text-gray-500 text-center py-4">尚未選擇器材</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <label for="borrowTime" class="block text-sm font-medium text-gray-700 mb-1">借出時間</label>
+            <input type="datetime-local" id="borrowTime" required
+                   class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        </div>
+
+        <button type="submit" id="submitBtn"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+            送出申請
+        </button>
+    </form>
+
+    <div id="messageBox" class="mt-6 p-4 rounded-md hidden"></div>
+
+    <!-- 歷史紀錄查詢 -->
+    <div class="mt-10 border-t pt-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">歷史紀錄查詢</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <input id="hEqp" placeholder="器材編號" class="px-3 py-2 border rounded-md text-sm">
+            <input id="hName" placeholder="器材名稱" class="px-3 py-2 border rounded-md text-sm">
+            <input id="hBorrower" placeholder="借出人姓名" class="px-3 py-2 border rounded-md text-sm">
+            <select id="hStatus" class="px-3 py-2 border rounded-md text-sm">
+                <option value="">全部狀態</option>
+                <option value="借出">借出</option>
+                <option value="歸還">歸還</option>
+            </select>
+            <input id="hFrom" type="date" class="px-3 py-2 border rounded-md text-sm">
+            <input id="hTo" type="date" class="px-3 py-2 border rounded-md text-sm">
+        </div>
+        <button type="button" id="searchHistoryBtn" class="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">查詢</button>
+        <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-sm text-left border">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="p-2">器材編號</th><th class="p-2">器材名稱</th>
+                        <th class="p-2">借出人</th><th class="p-2">日期</th><th class="p-2">狀態</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <tr><td colspan="5" class="p-3 text-center text-gray-500">請按「查詢」</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ===== 設定區（請修改）=====
+    const baserowApiKey = '140BctO8ebwZNt2ItsjuTOcd498G7Nnw';         // 請換成「重新產生」後的新 Token
+    const equipmentTableId = '622062';                    // 器材表
+    const historyTableId = '622063'; // Borrow Record 表
+    // ===========================
+
+    const equipmentUrl = `https://api.baserow.io/api/database/rows/table/${equipmentTableId}/`;
+    const historyUrl = `https://api.baserow.io/api/database/rows/table/${historyTableId}/`;
+    const authHeaders = { 'Authorization': `Token ${baserowApiKey}`, 'Content-Type': 'application/json' };
+
+    const borrowTimeInput = document.getElementById('borrowTime');
+    const borrowForm = document.getElementById('borrowForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageBox = document.getElementById('messageBox');
+    const availableEquipmentList = document.getElementById('availableEquipmentList');
+    const selectedEquipmentList = document.getElementById('selectedEquipmentList');
+
+    let allAvailableEquipments = [];
+    let currentSelectedEquipments = [];
+    let selectedAvailableItems = new Set();
+    let selectedSelectedItems = new Set();
+
+    function getCurrentDateTimeLocal() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        return now.toISOString().slice(0, 16);
+    }
+    borrowTimeInput.value = getCurrentDateTimeLocal();
+
+    // 單選欄位會回傳 {id, value, color}，統一轉成文字
+    function cellText(v) {
+        if (v && typeof v === 'object') return v.value ?? '';
+        return v ?? '';
+    }
+
+    function showMessage(message, type) {
+        messageBox.innerHTML = message;
+        messageBox.classList.remove('hidden', 'message-success', 'message-error', 'message-info');
+        messageBox.classList.add('message-' + type);
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // ===== 器材清單 =====
+    function makeItem(equipment, selectedSet) {
+        const div = document.createElement('div');
+        const sel = selectedSet.has(equipment.eqp_no) ? ' selected' : '';
+        div.className = `clickable-item p-2 bg-white rounded-md border border-gray-200 text-sm${sel}`;
+        div.dataset.equipmentNo = equipment.eqp_no;
+        div.textContent = equipment.eqp_name ? `${equipment.eqp_no}　${equipment.eqp_name}` : equipment.eqp_no;
+        return div;
+    }
+
+    function renderEquipmentLists() {
+        availableEquipmentList.innerHTML = '';
+        const available = allAvailableEquipments.filter(eq => !currentSelectedEquipments.some(s => s.id === eq.id));
+        if (available.length > 0) {
+            available.forEach(eq => availableEquipmentList.appendChild(makeItem(eq, selectedAvailableItems)));
+        } else {
+            availableEquipmentList.innerHTML = '<p class="text-gray-500 text-center py-4">無可用器材</p>';
+        }
+
+        selectedEquipmentList.innerHTML = '';
+        if (currentSelectedEquipments.length > 0) {
+            currentSelectedEquipments.forEach(eq => selectedEquipmentList.appendChild(makeItem(eq, selectedSelectedItems)));
+        } else {
+            selectedEquipmentList.innerHTML = '<p class="text-gray-500 text-center py-4">尚未選擇器材</p>';
+        }
+    }
+
+    async function loadEquipmentList(quiet) {
+    availableEquipmentList.innerHTML = '<p class="text-gray-500 text-center py-4">載入中...</p>';
+    allAvailableEquipments = [];
+    try {
+        let url = `${equipmentUrl}?user_field_names=true&filter__status__equal=在庫&size=100`;
+        while (url) {
+            // 關鍵修正：強制將 http 替換為 https，避免 CORS preflight 轉址錯誤
+            url = url.replace(/^http:\/\//i, 'https://');
+            
+            const res = await fetch(url, { headers: authHeaders });
+            if (!res.ok) throw new Error(`HTTP 錯誤! 狀態: ${res.status} ${res.statusText}`);
+            const data = await res.json();
+            (data.results || []).forEach(item =>
+                allAvailableEquipments.push({ id: item.id, eqp_no: item.eqp_no, eqp_name: item.eqp_name }));
+            url = data.next;
+        }
+        renderEquipmentLists();
+        if (!quiet) showMessage(`已成功載入 ${allAvailableEquipments.length} 筆器材資料`, 'success');
+    } catch (error) {
+        // ... 原本的 catch 處理 ...
+            console.error('載入器材清單時發生錯誤:', error);
+            const msg = (error instanceof TypeError)
+                ? '網路連線問題或 Baserow 服務無法存取，請檢查網路與 Token。'
+                : error.message;
+            showMessage(`載入器材清單失敗: ${escapeHtml(msg)}`, 'error');
+            availableEquipmentList.innerHTML = `<p class="text-red-500 text-center py-4">載入失敗</p>`;
+        }
+    }
+    loadEquipmentList();
+
+    function toggleHandler(listEl, set) {
+        listEl.addEventListener('click', function (e) {
+            const item = e.target.closest('.clickable-item');
+            if (!item || !item.dataset.equipmentNo) return;
+            const no = item.dataset.equipmentNo;
+            set.has(no) ? set.delete(no) : set.add(no);
+            renderEquipmentLists();
+        });
+    }
+    toggleHandler(availableEquipmentList, selectedAvailableItems);
+    toggleHandler(selectedEquipmentList, selectedSelectedItems);
+
+    document.getElementById('addSelectedBtn').addEventListener('click', function () {
+        if (selectedAvailableItems.size === 0) {
+            showMessage('請先在左側選擇要加入的器材！', 'error');
+            return;
+        }
+        selectedAvailableItems.forEach(no => {
+            const eq = allAvailableEquipments.find(e => e.eqp_no === no);
+            if (eq && !currentSelectedEquipments.some(s => s.id === eq.id)) currentSelectedEquipments.push(eq);
+        });
+        selectedAvailableItems.clear();
+        renderEquipmentLists();
+        showMessage('器材已加入已選清單！', 'success');
+    });
+
+    document.getElementById('removeSelectedBtn').addEventListener('click', function () {
+        if (selectedSelectedItems.size === 0) {
+            showMessage('請先在右側選擇要移除的器材！', 'error');
+            return;
+        }
+        const toRemove = Array.from(selectedSelectedItems);
+        currentSelectedEquipments = currentSelectedEquipments.filter(eq => !toRemove.includes(eq.eqp_no));
+        selectedSelectedItems.clear();
+        renderEquipmentLists();
+        showMessage('器材已從已選清單移除！', 'success');
+    });
+
+    // ===== 寫入歷史 =====
+    async function addHistory(record) {
+        try {
+            const res = await fetch(`${historyUrl}?user_field_names=true`, {
+                method: 'POST',
+                headers: authHeaders,
+                body: JSON.stringify(record)
+            });
+            if (!res.ok) {
+                console.error('歷史紀錄寫入失敗', await res.text());
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error('歷史紀錄寫入失敗', e);
+            return false;
+        }
+    }
+
+    // ===== 表單送出 =====
+    borrowForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const borrowerName = document.getElementById('borrowerName').value.trim();
+        const borrowingUnit = document.getElementById('borrowingUnit').value.trim();
+        const contactInfo = document.getElementById('contactInfo').value.trim();
+        const borrowDate = borrowTimeInput.value.split('T')[0];
+
+        if (currentSelectedEquipments.length === 0) {
+            showMessage('請至少選擇一項器材！', 'error');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        showMessage('送出申請中...', 'info');
+
+        const ok = [];
+        const fail = [];
+
+        for (const equipment of currentSelectedEquipments) {
+            const patchData = {
+                status: '借出',
+                borrower: borrowerName,
+                borrow_dept: borrowingUnit,
+                contact: contactInfo,
+                borrow_date: borrowDate
+            };
+            try {
+                const res = await fetch(`${equipmentUrl}${equipment.id}/?user_field_names=true`, {
+                    method: 'PATCH',
+                    headers: authHeaders,
+                    body: JSON.stringify(patchData)
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    console.error(`Failed to update equipment ID ${equipment.id}:`, err);
+                    fail.push(`器材 ${equipment.eqp_no} (更新失敗: ${err.detail || JSON.stringify(err)})`);
+                } else {
+                    const logged = await addHistory({
+                        borrower: borrowerName,
+                        eqp_name: equipment.eqp_name || '',
+                        eqp_no: equipment.eqp_no,
+                        borrow_date: borrowDate,
+                        status: '借出'
+                    });
+                    ok.push(`器材 ${equipment.eqp_no}${logged ? '' : '（⚠️ 歷史紀錄寫入失敗）'}`);
+                }
+            } catch (error) {
+                console.error('提交申請時發生錯誤:', error);
+                fail.push(`器材 ${equipment.eqp_no} (更新失敗: 網路連線錯誤或 API 無法存取)`);
+            }
+        }
+
+        const lines = [];
+        if (ok.length) {
+            lines.push(`✅ 成功借出 ${ok.length} 項器材：`);
+            lines.push(...ok.map(m => `- ${escapeHtml(m)}`));
+        }
+        if (fail.length) {
+            lines.push(`❌ 更新失敗 ${fail.length} 項器材：`);
+            lines.push(...fail.map(m => `- ${escapeHtml(m)}`));
+        }
+        showMessage(lines.join('<br>'), fail.length === 0 ? 'success' : 'error');
+
+        borrowForm.reset();
+        currentSelectedEquipments = [];
+        selectedAvailableItems.clear();
+        selectedSelectedItems.clear();
+        borrowTimeInput.value = getCurrentDateTimeLocal();
+        submitBtn.disabled = false;
+        loadEquipmentList(true); // 靜默重新載入，不覆蓋結果訊息
+    });
+
+    // ===== 歷史查詢 =====
+    async function searchHistory() {
+        const body = document.getElementById('historyBody');
+        body.innerHTML = '<tr><td colspan="5" class="p-3 text-center">查詢中...</td></tr>';
+
+        const params = new URLSearchParams({
+            user_field_names: 'true',
+            size: '200',
+            order_by: '-borrow_date,-id'
+        });
+        const eqp = document.getElementById('hEqp').value.trim();
+        const name = document.getElementById('hName').value.trim();
+        const who = document.getElementById('hBorrower').value.trim();
+        const status = document.getElementById('hStatus').value;
+        const from = document.getElementById('hFrom').value;
+        const to = document.getElementById('hTo').value;
+        if (eqp) params.append('filter__eqp_no__contains', eqp);
+        if (name) params.append('filter__eqp_name__contains', name);
+        if (who) params.append('filter__borrower__contains', who);
+
+        try {
+            let url = `${historyUrl}?${params}`;
+            let rows = [];
+            while (url) {
+                // 關鍵修正：同樣強制轉為 https
+                url = url.replace(/^http:\/\//i, 'https://');
+                
+                const res = await fetch(url, { headers: { 'Authorization': `Token ${baserowApiKey}` } });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                rows.push(...data.results);
+                url = data.next;
+            }
+
+            rows = rows.filter(r =>
+                (!status || cellText(r.status) === status) &&
+                (!from || r.borrow_date >= from) &&
+                (!to || r.borrow_date <= to)
+            );
+
+            body.innerHTML = '';
+            if (rows.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-gray-500">查無資料</td></tr>';
+                return;
+            }
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-t';
+                [r.eqp_no, r.eqp_name, r.borrower, r.borrow_date, r.status].forEach(v => {
+                    const td = document.createElement('td');
+                    td.className = 'p-2';
+                    td.textContent = cellText(v);
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+        } catch (e) {
+            body.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-red-600">查詢失敗：${escapeHtml(e.message)}</td></tr>`;
+        }
+    }
+    document.getElementById('searchHistoryBtn').addEventListener('click', searchHistory);
+});
+</script>
+</body>
+</html>
