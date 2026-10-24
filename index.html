@@ -347,10 +347,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const body = document.getElementById('historyBody');
         body.innerHTML = '<tr><td colspan="5" class="p-3 text-center">查詢中...</td></tr>';
 
+        // 1. 移除 order_by 參數，避免 Baserow 找不到欄位而回傳 400 錯誤
         const params = new URLSearchParams({
             user_field_names: 'true',
-            size: '200',
-            order_by: '-borrow_date,-id'
+            size: '200'
         });
         const eqp = document.getElementById('hEqp').value.trim();
         const name = document.getElementById('hName').value.trim();
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function () {
             let url = `${historyUrl}?${params}`;
             let rows = [];
             while (url) {
-                // 關鍵修正：同樣強制轉為 https
+                // 強制轉為 https
                 url = url.replace(/^http:\/\//i, 'https://');
                 
                 const res = await fetch(url, { headers: { 'Authorization': `Token ${baserowApiKey}` } });
@@ -376,13 +376,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 url = data.next;
             }
 
+            // 2. 進行前端條件過濾
             rows = rows.filter(r =>
                 (!status || cellText(r.status) === status) &&
                 (!from || r.borrow_date >= from) &&
                 (!to || r.borrow_date <= to)
             );
 
+            // 3. 在前端使用 JavaScript 進行排序 (依據日期與 ID 遞減)
+            rows.sort((a, b) => {
+                const dateA = new Date(a.borrow_date || 0).getTime();
+                const dateB = new Date(b.borrow_date || 0).getTime();
+                if (dateB !== dateA) return dateB - dateA; // 日期新的在上面
+                return (b.id || 0) - (a.id || 0);         // 同日期則 ID 大的在上面
+            });
+
             body.innerHTML = '';
+// ... 以下保持原樣 (if (rows.length === 0) ...)
             if (rows.length === 0) {
                 body.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-gray-500">查無資料</td></tr>';
                 return;
