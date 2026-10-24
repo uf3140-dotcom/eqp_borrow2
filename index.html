@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const borrowerName = document.getElementById('borrowerName').value.trim();
         const borrowingUnit = document.getElementById('borrowingUnit').value.trim();
         const contactInfo = document.getElementById('contactInfo').value.trim();
-        const borrowDate = borrowTimeInput.value.split('T')[0];
+        const borrowDate = new Date(borrowTimeInput.value).toISOString();
 
         if (currentSelectedEquipments.length === 0) {
             showMessage('請至少選擇一項器材！', 'error');
